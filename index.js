@@ -1,11 +1,14 @@
 /* @flow */
 
+import RequestCache from './RequestCache';
+
 type FetchRequest = {
-    url: string
+    url: string;
+    params?: {[key: string]: any}
 };
 type FetchRequestMap = { [key: string]: FetchRequest };
 
-type Client = (url: string) => Promise<any>;
+type Client = (url: string, params?: {[key: string]: any}) => Promise<any>;
 
 type RouteSpec = {
     fetchData: () => FetchRequestMap
@@ -18,7 +21,35 @@ export function createRoute(spec: RouteSpec): Route {
     return spec;
 }
 
+function dedupingClient(client: Client): Client {
+    const ongoingRequests = new RequestCache();
+    const cache = new RequestCache();
+    const callWithCache = (f, path, params) => {
+        const cachedResult = cache.getIfPresent(path, params);
+        if (cachedResult) {
+            return Promise.resolve(cachedResult);
+        }
+        var promise = ongoingRequests.getIfPresent(path, params);
+        if (!promise) {
+            promise = f().then(result => {
+                ongoingRequests.remove(path, params);
+                cache.put(path, params, result);
+                return result;
+            }, err => {
+                ongoingRequests.remove(path, params);
+                return Promise.reject(err);
+            });
+            ongoingRequests.put(path, params, promise);
+        }
+        return promise;
+    };
+    return (path, params) => {
+        return callWithCache(() => client(path, params), path, params);
+    };
+}
+
 export function fetchData(client: Client, routes: Array<Route>): Promise<Array<any>> {
+    client = dedupingClient(client);
     var data: Array<{[key: string]: any}> = [];
     var promises: Array<Promise<any>> = [];
     routes.forEach(route => {
@@ -27,7 +58,8 @@ export function fetchData(client: Client, routes: Array<Route>): Promise<Array<a
         data.push(routeData);
         for (let key in requestMap) {
             if (requestMap.hasOwnProperty(key)) {
-                promises.push(client(requestMap[key].url).then(resp => {
+                var request = requestMap[key];
+                promises.push(client(request.url, request.params).then(resp => {
                     routeData[key] = resp;
                 }));
             }
