@@ -22,30 +22,15 @@ export function createRoute(spec: RouteSpec): Route {
     return spec;
 }
 
-function dedupingClient(client: Client): Client {
-    const ongoingRequests = new RequestCache();
-    const cache = new RequestCache();
-    const callWithCache = (f, path, params) => {
+function dedupingClient(client: Client, cache: RequestCache): Client {
+    return (path, params) => {
         const cachedResult = cache.getIfPresent(path, params);
         if (cachedResult) {
-            return Promise.resolve(cachedResult);
+            return cachedResult;
         }
-        var promise = ongoingRequests.getIfPresent(path, params);
-        if (!promise) {
-            promise = f().then(result => {
-                ongoingRequests.remove(path, params);
-                cache.put(path, params, result);
-                return result;
-            }, err => {
-                ongoingRequests.remove(path, params);
-                return Promise.reject(err);
-            });
-            ongoingRequests.put(path, params, promise);
-        }
+        var promise = client(path, params);
+        cache.put(path, params, promise);
         return promise;
-    };
-    return (path, params) => {
-        return callWithCache(() => client(path, params), path, params);
     };
 }
 
@@ -66,7 +51,8 @@ function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
 }
 
 export function fetchData(client: Client, routes: Array<Route>): Promise<Array<any>> {
-    client = dedupingClient(client);
+    const cache = new RequestCache();
+    client = dedupingClient(client, cache);
     var data: Array<{[key: string]: any}> = [];
     var promises: Array<Promise<any>> = [];
     routes.forEach(route => {
