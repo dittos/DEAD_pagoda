@@ -6,29 +6,25 @@ type RequestParams = {[key: string]: any};
 type CacheEntry = {
     params: RequestParams;
     value: any;
-    version: number;
 };
 
 const UNDEFINED: RequestParams = {};
-const initialVersion = 0;
 
 export default class RequestCache {
     _cache: {[key: string]: Array<CacheEntry>};
-    _version: number;
     
     constructor() {
         this._cache = {};
-        this._version = initialVersion;
     }
 
-    getIfPresent(path: string, params?: RequestParams, minVersion: number = initialVersion) {
+    getIfPresent(path: string, params?: RequestParams) {
         const entries = this._cache[path];
         if (entries) {
             if (typeof params === 'undefined') {
                 params = UNDEFINED;
             }
             const entry = find(entries, entry => isEqual(entry.params, params));
-            if (entry && entry.version >= minVersion) {
+            if (entry) {
                 return entry.value;
             }
         }
@@ -41,7 +37,7 @@ export default class RequestCache {
         if (!this._cache[path]) {
             this._cache[path] = [];
         }
-        this._cache[path].push({ params, value, version: this._version });
+        this._cache[path].push({ params, value });
     }
 
     remove(path: string, params: RequestParams) {
@@ -55,14 +51,6 @@ export default class RequestCache {
                 delete this._cache[path];
             }
         }
-    }
-
-    incrementVersion(): number {
-        return ++this._version;
-    }
-
-    getVersion(): number {
-        return this._version;
     }
 
     clear() {
