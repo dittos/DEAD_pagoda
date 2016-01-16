@@ -3,7 +3,7 @@ import {expect} from 'chai';
 import {createRoute, fetchData, denormalize} from '..';
 
 describe('fetchData from server', () => {
-    it('fetches data', (done) => {
+    it('fetches data', async () => {
         const Parent = createRoute({
             fetchData() {
                 return {
@@ -23,16 +23,14 @@ describe('fetchData from server', () => {
 
         var client = (path, params) => Promise.resolve(!params ? path : {path, params});
         var routes = [Parent, Child];
-        fetchData(client, routes).then(data => {
-            expect(denormalize(data)).to.deep.equal([
-                {a: 'a', b: 'b'},
-                {a2: {path: 'a', params: {x: 'y'}}, c: 'c'}
-            ]);
-            done();
-        }).catch(done);
+        var data = await fetchData(client, routes);
+        expect(denormalize(data)).to.deep.equal([
+            {a: 'a', b: 'b'},
+            {a2: {path: 'a', params: {x: 'y'}}, c: 'c'}
+        ]);
     });
 
-    it('dedupes same fetch requests', (done) => {
+    it('dedupes same fetch requests', async () => {
         const Parent = createRoute({
             fetchData() {
                 return {
@@ -58,22 +56,20 @@ describe('fetchData from server', () => {
             return Promise.resolve(result);
         };
         var routes = [Parent, Child];
-        fetchData(client, routes).then(data => {
-            expect(requests.length).to.equal(4);
-            expect(requests).to.have.deep.members([
-                'a', 'b', 'c',
-                {path: 'a', params: {x: 'y'}}
-            ]);
-            expect(data.responses.length).to.equal(4);
-            expect(denormalize(data)).to.deep.equal([
-                {a: 'a', b: 'b'},
-                {a2: 'a', a3: {path: 'a', params: {x: 'y'}}, c: 'c'}
-            ]);
-            done();
-        }).catch(done);
+        var data = await fetchData(client, routes);
+        expect(requests.length).to.equal(4);
+        expect(requests).to.have.deep.members([
+            'a', 'b', 'c',
+            {path: 'a', params: {x: 'y'}}
+        ]);
+        expect(data.responses.length).to.equal(4);
+        expect(denormalize(data)).to.deep.equal([
+            {a: 'a', b: 'b'},
+            {a2: 'a', a3: {path: 'a', params: {x: 'y'}}, c: 'c'}
+        ]);
     });
     
-    it('fetches chained data', (done) => {
+    it('fetches chained data', async () => {
         const Route = createRoute({
             fetchData() {
                 return {
@@ -93,12 +89,9 @@ describe('fetchData from server', () => {
         });
         
         var client = (path, params) => Promise.resolve(path);
-        
-        fetchData(client, [Route]).then(data => {
-            expect(denormalize(data)).to.deep.equal([
-                {a: 'a', b: 'a/b', c: 'a/b/c'}
-            ]);
-            done();
-        }).catch(done);
+        var data = await fetchData(client, [Route]);
+        expect(denormalize(data)).to.deep.equal([
+            {a: 'a', b: 'a/b', c: 'a/b/c'}
+        ]);
     });
 });
