@@ -42,4 +42,30 @@ describe('RequestCache', () => {
         expect(cache.getIfPresent('a')).to.be.undefined;
         expect(cache.getIfPresent('a', {x: 'y'})).to.be.undefined;
     });
+    
+    it('serializes to JSON', () => {
+        const cache = new RequestCache();
+        cache.put('a', undefined, 'a');
+        cache.put('a', {x: 'y'}, 'a2');
+        cache.put('b', undefined, 'b');
+        expect(cache.toJSON()).to.be.deep.equal({
+            a: [
+                {value: 'a'},
+                {params: {x: 'y'}, value: 'a2'}
+            ],
+            b: [
+                {value: 'b'}
+            ]
+        });
+    });
+    
+    it('builds from JSON data', () => {
+        const cache = new RequestCache();
+        cache.put('a', undefined, 'a');
+        cache.put('a', {x: 'y'}, 'a2');
+        cache.put('b', undefined, 'b');
+        const cacheData = cache.toJSON();
+        const cache2 = new RequestCache(cacheData);
+        expect(cache2.toJSON()).to.be.deep.equal(cacheData);
+    });
 });
