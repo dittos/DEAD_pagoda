@@ -18,6 +18,11 @@ type Route = {
     fetchData: () => FetchRequestMap
 };
 
+type FetchResult = {
+    data: Array<{[key: string]: number}>;
+    responses: Array<any>;
+};
+
 export function createRoute(spec: RouteSpec): Route {
     return spec;
 }
@@ -58,7 +63,7 @@ function fetchInto(client: Client, responses: Array<any>, requestMap: FetchReque
     return Promise.all(promises);
 }
 
-export function fetchData(client: Client, routes: Array<Route>): Promise<any> {
+export function fetchData(client: Client, routes: Array<Route>): Promise<FetchResult> {
     const responses = [];
     client = normalizingClient(client, responses);
     const cache = new RequestCache();
@@ -74,7 +79,7 @@ export function fetchData(client: Client, routes: Array<Route>): Promise<any> {
     return Promise.all(promises).then(() => ({responses, data}));
 }
 
-export function denormalize({responses, data}) {
+export function denormalize({responses, data}: FetchResult): Array<any> {
     return data.map(routeData => {
         const result = {};
         for (let key in routeData) {
