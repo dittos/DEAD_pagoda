@@ -2,7 +2,7 @@ import {describe, it} from 'mocha';
 import {expect} from 'chai';
 import {createRoute, fetchData} from '..';
 
-describe('fetchData', () => {
+describe('fetchData from server', () => {
     it('fetches data', (done) => {
         const Parent = createRoute({
             fetchData() {
@@ -67,6 +67,35 @@ describe('fetchData', () => {
             expect(data).to.deep.equal([
                 {a: 'a', b: 'b'},
                 {a2: 'a', a3: {path: 'a', params: {x: 'y'}}, c: 'c'}
+            ]);
+            done();
+        }).catch(done);
+    });
+    
+    it('fetches chained data', (done) => {
+        const Route = createRoute({
+            fetchData() {
+                return {
+                    a: {
+                        url: 'a',
+                        andThen: (data) => ({
+                            b: {
+                                url: data + '/b',
+                                andThen: (dataB) => ({
+                                    c: {url: dataB + '/c'} 
+                                })
+                            }
+                        })
+                    }
+                };
+            }
+        });
+        
+        var client = (path, params) => Promise.resolve(path);
+        
+        fetchData(client, [Route]).then(data => {
+            expect(data).to.deep.equal([
+                {a: 'a', b: 'a/b', c: 'a/b/c'}
             ]);
             done();
         }).catch(done);

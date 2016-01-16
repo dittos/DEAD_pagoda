@@ -4,7 +4,8 @@ import RequestCache from './RequestCache';
 
 type FetchRequest = {
     url: string;
-    params?: {[key: string]: any}
+    params?: {[key: string]: any};
+    andThen?: (data: any) => FetchRequestMap;
 };
 type FetchRequestMap = { [key: string]: FetchRequest };
 
@@ -48,22 +49,31 @@ function dedupingClient(client: Client): Client {
     };
 }
 
+function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
+    var promises = [];
+    for (let key in requestMap) {
+        if (requestMap.hasOwnProperty(key)) {
+            var request = requestMap[key];
+            promises.push(client(request.url, request.params).then(resp => {
+                data[key] = resp;
+                if (request.andThen) {
+                    return fetchInto(client, request.andThen(resp), data);
+                }
+            }));
+        }
+    }
+    return Promise.all(promises);
+}
+
 export function fetchData(client: Client, routes: Array<Route>): Promise<Array<any>> {
     client = dedupingClient(client);
     var data: Array<{[key: string]: any}> = [];
     var promises: Array<Promise<any>> = [];
     routes.forEach(route => {
         var requestMap = route.fetchData();
-        var routeData = {};
+        var routeData: {[key: string]: any} = {};
+        promises.push(fetchInto(client, requestMap, routeData));
         data.push(routeData);
-        for (let key in requestMap) {
-            if (requestMap.hasOwnProperty(key)) {
-                var request = requestMap[key];
-                promises.push(client(request.url, request.params).then(resp => {
-                    routeData[key] = resp;
-                }));
-            }
-        }
     });
     return Promise.all(promises).then(() => data);
 }
