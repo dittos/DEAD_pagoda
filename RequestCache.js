@@ -1,15 +1,27 @@
+/* @flow */
+
 import {find, isEqual, remove} from 'lodash';
 
-const UNDEFINED = '';
+type RequestParams = {[key: string]: any};
+type CacheEntry = {
+    params: RequestParams;
+    value: any;
+    version: number;
+};
+
+const UNDEFINED: RequestParams = {};
 const initialVersion = 0;
 
 export default class RequestCache {
+    _cache: {[key: string]: Array<CacheEntry>};
+    _version: number;
+    
     constructor() {
         this._cache = {};
         this._version = initialVersion;
     }
 
-    getIfPresent(path, params, minVersion = initialVersion) {
+    getIfPresent(path: string, params?: RequestParams, minVersion: number = initialVersion) {
         const entries = this._cache[path];
         if (entries) {
             if (typeof params === 'undefined') {
@@ -22,7 +34,7 @@ export default class RequestCache {
         }
     }
 
-    put(path, params, value) {
+    put(path: string, params?: RequestParams, value: any) {
         if (typeof params === 'undefined') {
             params = UNDEFINED;
         }
@@ -32,7 +44,7 @@ export default class RequestCache {
         this._cache[path].push({ params, value, version: this._version });
     }
 
-    remove(path, params) {
+    remove(path: string, params: RequestParams) {
         const entries = this._cache[path];
         if (entries) {
             if (typeof params === 'undefined') {
@@ -45,11 +57,11 @@ export default class RequestCache {
         }
     }
 
-    incrementVersion() {
+    incrementVersion(): number {
         return ++this._version;
     }
 
-    getVersion() {
+    getVersion(): number {
         return this._version;
     }
 
