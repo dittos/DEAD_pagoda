@@ -23,6 +23,10 @@ type FetchResult = {
     data: Array<{[key: string]: any}>;
     cache: CacheData;
 };
+type FetchStatus = {
+    promise: Promise<FetchResult>;
+    progress: Array<string>;
+};
 
 export function createRoute(spec: RouteSpec): Route {
     return spec;
@@ -56,16 +60,30 @@ function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
     return Promise.all(promises);
 }
 
-export function fetchData(client: Client, routes: Array<Route>): Promise<FetchResult> {
+export function fetchDataWithProgress(client: Client, routes: Array<Route>, progressCallback?: Function): FetchStatus {
     const cache = new RequestCache();
     client = dedupingClient(client, cache);
     var data: Array<{[key: string]: any}> = [];
     var promises: Array<Promise<any>> = [];
-    routes.forEach(route => {
+    var progress: Array<string> = [];
+    routes.forEach((route, index) => {
         var requestMap = route.fetchData();
         var routeData: {[key: string]: any} = {};
-        promises.push(fetchInto(client, requestMap, routeData));
+        promises.push(fetchInto(client, requestMap, routeData).then(result => {
+            progress[index] = 'complete';
+            progressCallback && progressCallback();
+            return result;
+        }));
         data.push(routeData);
+        progress.push('loading');
     });
-    return Promise.all(promises).then(() => ({cache: cache.toJSON(), data}));
+    const promise = Promise.all(promises).then(() => ({cache: cache.toJSON(), data}));
+    return {
+        promise,
+        progress
+    };
+}
+
+export function fetchData(client: Client, routes: Array<Route>): Promise<FetchResult> {
+    return fetchDataWithProgress(client, routes).promise;
 }

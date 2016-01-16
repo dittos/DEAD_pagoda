@@ -2,7 +2,7 @@ import {describe, it} from 'mocha';
 import {expect} from 'chai';
 import {createRoute, fetchData} from '..';
 
-describe('fetchData from server', () => {
+describe('fetchData in server', () => {
     it('fetches data', async () => {
         const Parent = createRoute({
             fetchData() {
