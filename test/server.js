@@ -1,6 +1,6 @@
 import {describe, it} from 'mocha';
 import {expect} from 'chai';
-import {createRoute, fetchData} from '..';
+import {createRoute, fetchData, denormalize} from '..';
 
 describe('fetchData from server', () => {
     it('fetches data', (done) => {
@@ -24,7 +24,7 @@ describe('fetchData from server', () => {
         var client = (path, params) => Promise.resolve(!params ? path : {path, params});
         var routes = [Parent, Child];
         fetchData(client, routes).then(data => {
-            expect(data).to.deep.equal([
+            expect(denormalize(data)).to.deep.equal([
                 {a: 'a', b: 'b'},
                 {a2: {path: 'a', params: {x: 'y'}}, c: 'c'}
             ]);
@@ -64,7 +64,8 @@ describe('fetchData from server', () => {
                 'a', 'b', 'c',
                 {path: 'a', params: {x: 'y'}}
             ]);
-            expect(data).to.deep.equal([
+            expect(data.responses.length).to.equal(4);
+            expect(denormalize(data)).to.deep.equal([
                 {a: 'a', b: 'b'},
                 {a2: 'a', a3: {path: 'a', params: {x: 'y'}}, c: 'c'}
             ]);
@@ -94,7 +95,7 @@ describe('fetchData from server', () => {
         var client = (path, params) => Promise.resolve(path);
         
         fetchData(client, [Route]).then(data => {
-            expect(data).to.deep.equal([
+            expect(denormalize(data)).to.deep.equal([
                 {a: 'a', b: 'a/b', c: 'a/b/c'}
             ]);
             done();

@@ -22,6 +22,14 @@ export function createRoute(spec: RouteSpec): Route {
     return spec;
 }
 
+function normalizingClient(client: Client, accum: Array<any>): Client {
+    return (path, params) => client(path, params).then(resp => {
+        accum.push(resp);
+        const respID = accum.length - 1;
+        return respID;
+    });
+}
+
 function dedupingClient(client: Client, cache: RequestCache): Client {
     return (path, params) => {
         const cachedResult = cache.getIfPresent(path, params);
@@ -34,7 +42,7 @@ function dedupingClient(client: Client, cache: RequestCache): Client {
     };
 }
 
-function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
+function fetchInto(client: Client, responses: Array<any>, requestMap: FetchRequestMap, data) {
     var promises = [];
     for (let key in requestMap) {
         if (requestMap.hasOwnProperty(key)) {
@@ -42,7 +50,7 @@ function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
             promises.push(client(request.url, request.params).then(resp => {
                 data[key] = resp;
                 if (request.andThen) {
-                    return fetchInto(client, request.andThen(resp), data);
+                    return fetchInto(client, responses, request.andThen(responses[resp]), data);
                 }
             }));
         }
@@ -50,7 +58,9 @@ function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
     return Promise.all(promises);
 }
 
-export function fetchData(client: Client, routes: Array<Route>): Promise<Array<any>> {
+export function fetchData(client: Client, routes: Array<Route>): Promise<any> {
+    const responses = [];
+    client = normalizingClient(client, responses);
     const cache = new RequestCache();
     client = dedupingClient(client, cache);
     var data: Array<{[key: string]: any}> = [];
@@ -58,8 +68,20 @@ export function fetchData(client: Client, routes: Array<Route>): Promise<Array<a
     routes.forEach(route => {
         var requestMap = route.fetchData();
         var routeData: {[key: string]: any} = {};
-        promises.push(fetchInto(client, requestMap, routeData));
+        promises.push(fetchInto(client, responses, requestMap, routeData));
         data.push(routeData);
     });
-    return Promise.all(promises).then(() => data);
+    return Promise.all(promises).then(() => ({responses, data}));
+}
+
+export function denormalize({responses, data}) {
+    return data.map(routeData => {
+        const result = {};
+        for (let key in routeData) {
+            if (routeData.hasOwnProperty(key)) {
+                result[key] = responses[routeData[key]];
+            }
+        }
+        return result;
+    });
 }
