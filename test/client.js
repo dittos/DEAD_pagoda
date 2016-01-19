@@ -1,6 +1,7 @@
 import {describe, it} from 'mocha';
 import {expect} from 'chai';
-import {createRoute, fetchDataWithProgress} from '..';
+import {createRoute, fetchDataWithProgress, allCached} from '..';
+import RequestCache from '../RequestCache';
 
 describe('fetchData in client', () => {
     it('reports progress', (done) => {
@@ -40,5 +41,43 @@ describe('fetchData in client', () => {
             barriers.b();
         };
         barriers.a();
+    });
+    
+    it('tests all required data is cached', () => {
+        const Parent = createRoute({
+            fetchData() {
+                return {
+                    a: {url: 'a'}
+                };
+            }
+        });
+        const Child = createRoute({
+            fetchData() {
+                return {
+                    a: {url: 'a'},
+                    b: {url: 'b'}
+                };
+            }
+        });
+        const Chained = createRoute({
+            fetchData() {
+                return {
+                    a: {
+                        url: 'a',
+                        andThen: (a) => {b: {url: a + '/b'}}
+                    }
+                };
+            }
+        });
+        
+        const cache = new RequestCache();
+        cache.put('a', undefined, 'a');
+        expect(allCached(Parent, cache)).to.be.truthy;
+        expect(allCached(Child, cache)).to.be.falsey;
+        expect(allCached(Chained, cache)).to.be.falsey;
+        
+        cache.put('b', undefined, 'b');
+        expect(allCached(Child, cache)).to.be.truthy;
+        expect(allCached(Chained, cache)).to.be.truthy;
     });
 });

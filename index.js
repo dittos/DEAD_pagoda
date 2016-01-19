@@ -87,3 +87,24 @@ export function fetchDataWithProgress(client: Client, routes: Array<Route>, prog
 export function fetchData(client: Client, routes: Array<Route>): Promise<FetchResult> {
     return fetchDataWithProgress(client, routes).promise;
 }
+
+export function allCached(route: Route, cache: RequestCache): boolean {
+    var requestMap = route.fetchData();
+    return _allCached(requestMap, cache);
+}
+
+function _allCached(requestMap: FetchRequestMap, cache: RequestCache): boolean {
+    for (let key in requestMap) {
+        if (requestMap.hasOwnProperty(key)) {
+            var request = requestMap[key];
+            var cachedResult = cache.getIfPresent(request.url, request.params); 
+            if (!cachedResult) {
+                return false;
+            }
+            if (request.andThen && !_allCached(request.andThen(cachedResult), cache)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
