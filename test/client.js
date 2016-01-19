@@ -28,7 +28,8 @@ describe('fetchData in client', () => {
             });
         };
         var onProgress;
-        const {promise, progress} = fetchDataWithProgress(client, [Parent, Child], () => onProgress());
+        const routes = [{route: Parent}, {route: Child}];
+        const {promise, progress} = fetchDataWithProgress(client, routes, () => onProgress());
         promise.catch(done);
         expect(progress).to.be.deep.equal(['loading', 'loading']);
         onProgress = () => {

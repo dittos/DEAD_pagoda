@@ -13,10 +13,12 @@ type FetchRequestMap = { [key: string]: FetchRequest };
 type Client = (url: string, params?: {[key: string]: any}) => Promise<any>;
 
 type RouteSpec = {
-    fetchData: () => FetchRequestMap
+    fetchData: (props?: {[key: string]: any}) => FetchRequestMap
 };
-type Route = {
-    fetchData: () => FetchRequestMap
+type Route = RouteSpec;
+type RouteRequest = {
+    route: Route;
+    props?: {[key: string]: any};
 };
 
 type FetchResult = {
@@ -60,14 +62,14 @@ function fetchInto(client: Client, requestMap: FetchRequestMap, data) {
     return Promise.all(promises);
 }
 
-export function fetchDataWithProgress(client: Client, routes: Array<Route>, progressCallback?: Function): FetchStatus {
+export function fetchDataWithProgress(client: Client, routeRequests: Array<RouteRequest>, progressCallback?: Function): FetchStatus {
     const cache = new RequestCache();
     client = dedupingClient(client, cache);
     var data: Array<{[key: string]: any}> = [];
     var promises: Array<Promise<any>> = [];
     var progress: Array<string> = [];
-    routes.forEach((route, index) => {
-        var requestMap = route.fetchData();
+    routeRequests.forEach((routeRequest, index) => {
+        var requestMap = routeRequest.route.fetchData(routeRequest.props);
         var routeData: {[key: string]: any} = {};
         promises.push(fetchInto(client, requestMap, routeData).then(result => {
             progress[index] = 'complete';
@@ -84,8 +86,8 @@ export function fetchDataWithProgress(client: Client, routes: Array<Route>, prog
     };
 }
 
-export function fetchData(client: Client, routes: Array<Route>): Promise<FetchResult> {
-    return fetchDataWithProgress(client, routes).promise;
+export function fetchData(client: Client, routeRequests: Array<RouteRequest>): Promise<FetchResult> {
+    return fetchDataWithProgress(client, routeRequests).promise;
 }
 
 export function allCached(route: Route, cache: RequestCache): boolean {

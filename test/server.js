@@ -1,3 +1,4 @@
+// @flow
 import {describe, it} from 'mocha';
 import {expect} from 'chai';
 import {createRoute, fetchData} from '..';
@@ -22,7 +23,7 @@ describe('fetchData in server', () => {
         });
 
         var client = (path, params) => Promise.resolve(!params ? path : {path, params});
-        var routes = [Parent, Child];
+        var routes = [{route: Parent}, {route: Child}];
         var result = await fetchData(client, routes);
         expect(result.data).to.deep.equal([
             {a: 'a', b: 'b'},
@@ -55,7 +56,7 @@ describe('fetchData in server', () => {
             requests.push(result);
             return Promise.resolve(result);
         };
-        var routes = [Parent, Child];
+        var routes = [{route: Parent}, {route: Child}];
         var result = await fetchData(client, routes);
         expect(requests.length).to.equal(4);
         expect(requests).to.have.deep.members([
@@ -88,9 +89,28 @@ describe('fetchData in server', () => {
         });
         
         var client = (path, params) => Promise.resolve(path);
-        var result = await fetchData(client, [Route]);
+        var result = await fetchData(client, [{route: Route}]);
         expect(result.data).to.deep.equal([
             {a: 'a', b: 'a/b', c: 'a/b/c'}
+        ]);
+    });
+    
+    it('passes extra props to fetchData callback', async () => {
+        const Route = createRoute({
+            fetchData(props = {}) {
+                return {
+                    a: {url: props.a}
+                };
+            }
+        });
+        
+        var client = (path, params) => Promise.resolve(path);
+        var result = await fetchData(client, [{
+            route: Route,
+            props: {a: 'a'}
+        }]);
+        expect(result.data).to.deep.equal([
+            {a: 'a'}
         ]);
     });
 });
